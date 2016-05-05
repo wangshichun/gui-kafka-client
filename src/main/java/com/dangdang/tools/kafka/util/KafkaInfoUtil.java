@@ -191,15 +191,20 @@ public class KafkaInfoUtil {
     }
 
     public long[] getOffset(kafka.javaapi.PartitionMetadata partitionMetadata, String topic) {
+        if (partitionMetadata.leader() == null)
+            return null;
+
         SimpleConsumer consumer = consumerMap.get(partitionMetadata.leader().id());
         TopicAndPartition topicAndPartition = new TopicAndPartition(topic, partitionMetadata.partitionId());
         Map<TopicAndPartition, PartitionOffsetRequestInfo> requestInfo = new HashMap<TopicAndPartition, PartitionOffsetRequestInfo>();
-        requestInfo.put(topicAndPartition, new PartitionOffsetRequestInfo(latestOffsetTime, 2));
+        requestInfo.put(topicAndPartition, new PartitionOffsetRequestInfo(latestOffsetTime, 100));
         OffsetRequest request = new OffsetRequest(
                 requestInfo, kafka.api.OffsetRequest.CurrentVersion(), consumer.clientId());
 
         long[] offsets = consumer.getOffsetsBefore(request).offsets(topic, partitionMetadata.partitionId());
         if (offsets.length > 0) {
+            if (offsets.length > 2) // 有多个segment的时候，依次从最大的offset，往最小的offset排列并返回
+                return new long[] { offsets[0], offsets[offsets.length - 1] };
             return offsets; // 如果该分区有消息，则offsets的长度为2，元素分别是最大、最小offset
         } else {
             return null;

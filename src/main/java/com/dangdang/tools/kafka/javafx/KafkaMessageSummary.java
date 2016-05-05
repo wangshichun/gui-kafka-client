@@ -355,6 +355,8 @@ public class KafkaMessageSummary extends Tab {
                 row = new HashMap<Object, String>();
         row.put(NAME_COLUMN, "leader broker");
         for (PartitionMetadata meta : topicMeta.partitionsMetadata()) {
+            if (meta.leader() == null)
+                continue;
             row.put(meta.partitionId(), String.valueOf(meta.leader().id()));
         }
         dataList.add(row);

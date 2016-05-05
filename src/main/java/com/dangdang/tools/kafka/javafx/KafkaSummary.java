@@ -112,7 +112,7 @@ public class KafkaSummary extends Tab {
             List<PartitionMetadata> partitionList = topic.partitionsMetadata();
             for (PartitionMetadata partition : partitionList) {
                 sb.append(String.format("\tpartition index: %s\n", partition.partitionId()));
-                sb.append(String.format("\tleader broker id: %s\n", partition.leader().id()));
+                sb.append(String.format("\tleader broker id: %s\n", null == partition.leader() ? "null" : partition.leader().id()));
                 sb.append(String.format("\treplicas: %s\n", partition.replicas().toString()));
                 sb.append(String.format("\tin sync replicas: %s\n", partition.isr().toString()));
                 sb.append("\n");
