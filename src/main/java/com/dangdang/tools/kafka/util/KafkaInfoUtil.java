@@ -19,6 +19,7 @@ import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.kafka.clients.producer.*;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.codehaus.jackson.map.ObjectMapper;
 import scala.Option;
 import scala.Tuple2;
 import scala.collection.JavaConversions;
@@ -47,8 +48,10 @@ public class KafkaInfoUtil {
     private KafkaProducer<String, String> kafkaProducer;
     private List<Runnable> runnableListWhenConnected = new CopyOnWriteArrayList<Runnable>();
     private String clientId = genClientId();
+    private static final String STORM_TRASACTIONAL_PATH = "/transactional";
 
     private ZkClient zkClient;
+    private ZkClient zkClientStorm;
     public void setKafkaZookeeperPath(String zookeeperPath) {
         if (null == zookeeperPath || zookeeperPath.isEmpty())
             return;
@@ -89,6 +92,18 @@ public class KafkaInfoUtil {
             }
         }
         zkClient = new ZkClient(hostAndPortAndChRoot);
+        ZkClient tmp; //
+        if (hostAndPortAndChRoot.contains("/")) {
+            tmp = new ZkClient(hostAndPortAndChRoot.substring(0, hostAndPortAndChRoot.indexOf("/")));
+        } else {
+            tmp = new ZkClient(hostAndPortAndChRoot);
+        }
+        if (tmp.exists(STORM_TRASACTIONAL_PATH)) {
+            zkClientStorm = tmp;
+            zkClientStorm.setZkSerializer(ZKStringSerializer$.MODULE$);
+        } else {
+            zkClientStorm = null;
+        }
         brokerMap.clear();
         consumerMap.clear();
     }
@@ -325,6 +340,57 @@ public class KafkaInfoUtil {
 
     public List<String> getConsumerGroups() {
         return zkClient.getChildren(ZkUtils.ConsumersPath());
+    }
+
+    public Map<String, Map<Integer, Long>> getStormOffset(String topic) {
+        Map<String, Map<Integer, Long>> map = new HashMap<String, Map<Integer, Long>>();
+        if (zkClientStorm == null)
+            return map;
+        List<String> consumerList = zkClientStorm.getChildren(STORM_TRASACTIONAL_PATH);
+        if (consumerList == null || consumerList.isEmpty())
+            return map;
+
+        try {
+            for (String consumer : consumerList) {
+                String userPath = STORM_TRASACTIONAL_PATH + "/" + consumer + "/user";
+                if (!zkClientStorm.exists(userPath))
+                    continue;
+                List<String> partitionList = zkClientStorm.getChildren(userPath);
+                if (partitionList == null || partitionList.isEmpty())
+                    continue;
+
+                Map<Integer, Long> offsetMap = new HashMap<Integer, Long>();
+                for (String partition : partitionList) {
+                    String partitionPath = userPath + "/" + partition;
+                    if (!zkClientStorm.exists(partitionPath))
+                        break;
+
+                    // 尝试3次
+                    for (int i = 0; i < 3; i++) {
+                        List<String> attemptList = zkClientStorm.getChildren(partitionPath);
+                        if (attemptList == null || attemptList.isEmpty())
+                            continue;
+                        String attempt = attemptList.get(attemptList.size() - 1);
+                        String attemptPath = partitionPath + "/" + attempt;
+                        String json = zkClientStorm.readData(attemptPath, true);
+                        if (null == json || json.length() == 0)
+                            continue;
+
+                        HashMap data = new ObjectMapper().readValue(json, HashMap.class);
+                        if (!topic.equals(data.get("topic").toString()))
+                            break;
+                        int part = Integer.valueOf(data.get("partition").toString());
+                        long offset = Math.min(Long.valueOf(data.get("offset").toString()), Long.valueOf(data.get("nextOffset").toString()));
+                        offsetMap.put(part, offset);
+                    }
+                }
+                if (offsetMap.size() > 0)
+                    map.put(consumer, offsetMap);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return map;
     }
 
     /**返回offset，long转为字符串；如果没有查到，则返回null*/

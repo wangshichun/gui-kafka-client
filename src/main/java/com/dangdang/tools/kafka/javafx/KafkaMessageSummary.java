@@ -415,6 +415,25 @@ public class KafkaMessageSummary extends Tab {
             dataList.add(row);
         }
 
+        Map<String, Map<Integer, Long>> stormOffsetMap = kafkaInfoUtil.getStormOffset(topicMeta.topic());
+        row = new HashMap<Object, String>();
+        row.put(NAME_COLUMN, "storm消费者的offset:" + (stormOffsetMap.isEmpty() ? "无" : ""));
+        dataList.add(row);
+
+        for (String group : stormOffsetMap.keySet()) {
+            Map<Integer, Long> offsetMap = stormOffsetMap.get(group);
+            if (offsetMap == null || offsetMap.isEmpty())
+                continue;
+            row = new HashMap<Object, String>();
+            row.put(NAME_COLUMN, group);
+            for (PartitionMetadata meta : topicMeta.partitionsMetadata()) {
+                Long offset = offsetMap.get(meta.partitionId());
+                offset = offset == null ? -1L : offset;
+                row.put(meta.partitionId(), offset.toString());
+            }
+            dataList.add(row);
+        }
+
         resultTable.getItems().setAll(dataList);
 
         resultTable.setVisible(true);
