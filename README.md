@@ -1,5 +1,6 @@
 # gui-kafka-client
-kafka gui client: for CRUD
+kafka client gui tool for: info summary, message count, comsumer comsume offset view, storm-kafka offset view, send message or download or "tail -f" message
+
 
 使用方法：运行target目录中的jar文件即可。
 
