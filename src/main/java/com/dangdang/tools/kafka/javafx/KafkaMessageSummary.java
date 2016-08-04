@@ -397,24 +397,6 @@ public class KafkaMessageSummary extends Tab {
         }
         dataList.add(row);
 
-
-        List<String> groupList = kafkaInfoUtil.getConsumerGroups();
-        row = new HashMap<Object, String>();
-        row.put(NAME_COLUMN, "消费者group的offset:" + (groupList.isEmpty() ? "无group" : ""));
-        dataList.add(row);
-
-        Collections.sort(groupList);
-        for (String group : groupList) {
-            row = new HashMap<Object, String>();
-            row.put(NAME_COLUMN, group);
-            for (PartitionMetadata meta : topicMeta.partitionsMetadata()) {
-                String offset = kafkaInfoUtil.getConsumerOffset(group, topicMeta.topic(), meta.partitionId());
-                offset = offset == null ? "-1" : offset;
-                row.put(meta.partitionId(), offset);
-            }
-            dataList.add(row);
-        }
-
         Map<String, Map<Integer, Long>> stormOffsetMap = kafkaInfoUtil.getStormOffset(topicMeta.topic());
         row = new HashMap<Object, String>();
         row.put(NAME_COLUMN, "storm消费者的offset:" + (stormOffsetMap.isEmpty() ? "无" : ""));
@@ -430,6 +412,23 @@ public class KafkaMessageSummary extends Tab {
                 Long offset = offsetMap.get(meta.partitionId());
                 offset = offset == null ? -1L : offset;
                 row.put(meta.partitionId(), offset.toString());
+            }
+            dataList.add(row);
+        }
+
+        List<String> groupList = kafkaInfoUtil.getConsumerGroups();
+        row = new HashMap<Object, String>();
+        row.put(NAME_COLUMN, "消费者group的offset:" + (groupList.isEmpty() ? "无group" : ""));
+        dataList.add(row);
+
+        Collections.sort(groupList);
+        for (String group : groupList) {
+            row = new HashMap<Object, String>();
+            row.put(NAME_COLUMN, group);
+            for (PartitionMetadata meta : topicMeta.partitionsMetadata()) {
+                String offset = kafkaInfoUtil.getConsumerOffset(group, topicMeta.topic(), meta.partitionId());
+                offset = offset == null ? "-1" : offset;
+                row.put(meta.partitionId(), offset);
             }
             dataList.add(row);
         }
