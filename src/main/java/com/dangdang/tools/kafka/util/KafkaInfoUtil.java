@@ -370,7 +370,7 @@ public class KafkaInfoUtil {
                         List<String> attemptList = zkClientStorm.getChildren(partitionPath);
                         if (attemptList == null || attemptList.isEmpty())
                             continue;
-                        String attempt = attemptList.get(attemptList.size() - 1);
+                        String attempt = attemptList.get(0);
                         String attemptPath = partitionPath + "/" + attempt;
                         String json = zkClientStorm.readData(attemptPath, true);
                         if (null == json || json.length() == 0)

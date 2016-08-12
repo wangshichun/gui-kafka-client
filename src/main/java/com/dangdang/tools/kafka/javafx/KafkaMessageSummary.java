@@ -2,6 +2,7 @@ package com.dangdang.tools.kafka.javafx;
 
 import com.dangdang.tools.kafka.util.AlertUtil;
 import com.dangdang.tools.kafka.util.KafkaInfoUtil;
+import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.event.EventHandler;
@@ -30,9 +31,10 @@ import java.util.*;
 public class KafkaMessageSummary extends Tab {
     private KafkaInfoUtil kafkaInfoUtil;
     private ComboBox<String> topicComboBox;
+    private CheckBox stormCheckBox = new CheckBox("显示storm消费者的offset");
     private BarChart<String, Integer> partitionsChart;
     private TableView<Map> resultTable;
-    private TextField stormZookeeper;
+//    private TextField stormZookeeper;
     public KafkaMessageSummary(KafkaInfoUtil kafkaInfoUtil, TabPane tabPane) {
         this.setClosable(false);
         this.setText("  分区消息统计、下载  ");
@@ -265,13 +267,19 @@ public class KafkaMessageSummary extends Tab {
         topicComboBox.getSelectionModel().selectedItemProperty().addListener(new ChangeListener<String>() {
             @Override
             public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue) {
-                getSummaryAndDisplay(topicComboBox.getSelectionModel().getSelectedItem());
+                Platform.runLater(new Runnable() {
+                    @Override
+                    public void run() {
+                        getSummaryAndDisplay(topicComboBox.getSelectionModel().getSelectedItem());
+                    }
+                });
             }
         });
     }
 
     private void addGetSummaryButton(FlowPane pane) {
         Button button = new Button("刷新");
+        pane.getChildren().add(stormCheckBox);
         pane.getChildren().add(button);
 
         button.setOnMouseClicked(new EventHandler<MouseEvent>() {
@@ -281,7 +289,7 @@ public class KafkaMessageSummary extends Tab {
                     return;
 
                 getTopicsAndDisplay();
-                getSummaryAndDisplay(topicComboBox.getSelectionModel().getSelectedItem());
+//                getSummaryAndDisplay(topicComboBox.getSelectionModel().getSelectedItem());
             }
         });
     }
@@ -336,6 +344,9 @@ public class KafkaMessageSummary extends Tab {
     }
 
     private void getConsumerSummaryAndDisplay(TopicMetadata topicMeta, Map<Integer, Long> startOffsetMap, Map<Integer, Long> endOffsetMap) {
+        if (topicMeta.topic() == null)
+            return;
+
         resultTable.setVisible(false);
         // 设置列名称
         final String NAME_COLUMN = "name";
@@ -399,23 +410,25 @@ public class KafkaMessageSummary extends Tab {
         }
         dataList.add(row);
 
-        Map<String, Map<Integer, Long>> stormOffsetMap = kafkaInfoUtil.getStormOffset(topicMeta.topic());
-        row = new HashMap<Object, String>();
-        row.put(NAME_COLUMN, "storm消费者的offset:" + (stormOffsetMap.isEmpty() ? "无" : ""));
-        dataList.add(row);
-
-        for (String group : stormOffsetMap.keySet()) {
-            Map<Integer, Long> offsetMap = stormOffsetMap.get(group);
-            if (offsetMap == null || offsetMap.isEmpty())
-                continue;
+        if (stormCheckBox.isSelected()) {
+            Map<String, Map<Integer, Long>> stormOffsetMap = kafkaInfoUtil.getStormOffset(topicMeta.topic());
             row = new HashMap<Object, String>();
-            row.put(NAME_COLUMN, group);
-            for (PartitionMetadata meta : topicMeta.partitionsMetadata()) {
-                Long offset = offsetMap.get(meta.partitionId());
-                offset = offset == null ? -1L : offset;
-                row.put(meta.partitionId(), offset.toString());
-            }
+            row.put(NAME_COLUMN, "storm消费者的offset:" + (stormOffsetMap.isEmpty() ? "无" : ""));
             dataList.add(row);
+
+            for (String group : stormOffsetMap.keySet()) {
+                Map<Integer, Long> offsetMap = stormOffsetMap.get(group);
+                if (offsetMap == null || offsetMap.isEmpty())
+                    continue;
+                row = new HashMap<Object, String>();
+                row.put(NAME_COLUMN, group);
+                for (PartitionMetadata meta : topicMeta.partitionsMetadata()) {
+                    Long offset = offsetMap.get(meta.partitionId());
+                    offset = offset == null ? -1L : offset;
+                    row.put(meta.partitionId(), offset.toString());
+                }
+                dataList.add(row);
+            }
         }
 
         List<String> groupList = kafkaInfoUtil.getConsumerGroups();
