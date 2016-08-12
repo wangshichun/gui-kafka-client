@@ -241,19 +241,19 @@ public class KafkaMessageSummary extends Tab {
         partitionsChart.setTitle("各分区的消息数统计");
         partitionsChart.getData().addAll(series);
         partitionsChart.setAnimated(true);
-        partitionsChart.setPrefHeight(200);
+//        partitionsChart.setPrefHeight(200);
         JavaFxUtil.setPreWidth(pane, new Region[] {partitionsChart});
 
         resultTable = new TableView<Map>();
         resultTable.setStyle("-fx-padding: 0px;");
-        resultTable.setPrefHeight(400);
+//        resultTable.setPrefHeight(400);
         JavaFxUtil.setPreWidth(pane, new Region[] { resultTable });
 
         SplitPane splitPane = new SplitPane(partitionsChart, resultTable);
         splitPane.setOrientation(Orientation.VERTICAL);
         splitPane.setStyle("-fx-background-color: burlywood;");
         splitPane.setDividerPositions(0.32);
-        splitPane.setPrefHeight(600);
+        splitPane.setPrefHeight(500);
         JavaFxUtil.setPreWidth(pane, new Region[] { splitPane });
         pane.getChildren().addAll(splitPane);
 //        pane.getChildren().addAll(partitionsChart, resultTable);
