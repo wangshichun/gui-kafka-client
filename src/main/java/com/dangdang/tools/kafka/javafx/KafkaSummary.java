@@ -90,7 +90,7 @@ public class KafkaSummary extends Tab {
             Broker broker = brokerMap.get(key);
             sb.append(String.format("\tid: %s, host: %s, port: %s \n", broker.id(), broker.host(), broker.port()));
         }
-        TextArea area = new TextArea(sb.substring(0, sb.length() - 1));
+        TextArea area = new TextArea(sb.length() > 0 ? sb.substring(0, sb.length() - 1) : "");
         area.setPrefRowCount(Math.min(brokerMap.size(), 15));
         area.setEditable(false);
         List<TitledPane> titledPaneList = new LinkedList<TitledPane>();

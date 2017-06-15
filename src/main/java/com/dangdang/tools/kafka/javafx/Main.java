@@ -91,6 +91,7 @@ public class Main extends Application {
                 new KafkaMessageSummary(kafkaInfoUtil, tabPane),
                 new KafkaMessageSend(kafkaInfoUtil, tabPane),
                 new KafkaMessageTail(kafkaInfoUtil, tabPane),
+                new KafkaMessageFetch(kafkaInfoUtil, tabPane),
                 new KafkaMessageGrep(kafkaInfoUtil, tabPane),
                 new KafkaMessageGrepGroovy(kafkaInfoUtil, tabPane));
     }

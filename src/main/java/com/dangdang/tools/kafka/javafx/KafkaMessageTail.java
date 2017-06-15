@@ -24,9 +24,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Created by wangshichun on 2015/12/25.
  */
 public class KafkaMessageTail extends Tab {
-    private KafkaInfoUtil kafkaInfoUtil;
-    private ComboBox<String> topicComboBox;
-    private ComboBox<String> topicPartitionComboBox;
+    protected KafkaInfoUtil kafkaInfoUtil;
+    protected ComboBox<String> topicComboBox;
+    protected ComboBox<String> topicPartitionComboBox;
     private TextField tailNumberTextField;
     private TextArea tailResultText;
     private Thread tailThread = null;
@@ -52,14 +52,7 @@ public class KafkaMessageTail extends Tab {
 
         JavaFxUtil.addNewLine(pane);
         addFilterControl(pane);
-
-        JavaFxUtil.addNewLine(pane);
-        addTailTextfield(pane);
-        JavaFxUtil.addNewSpace(pane, 4);
-        addEnterButton(pane);
-        addBreakButton(pane);
-        JavaFxUtil.addNewLine(pane);
-        addTailResultControl(pane);
+        addTailControl(pane);
 
         kafkaInfoUtil.doWhenConnected(new Runnable() {
             @Override
@@ -70,6 +63,16 @@ public class KafkaMessageTail extends Tab {
     }
 
     protected void addFilterControl(FlowPane pane) {
+    }
+
+    protected void addTailControl(FlowPane pane) {
+        JavaFxUtil.addNewLine(pane);
+        addTailTextfield(pane);
+        JavaFxUtil.addNewSpace(pane, 4);
+        addEnterButton(pane);
+        addBreakButton(pane);
+        JavaFxUtil.addNewLine(pane);
+        addTailResultControl(pane);
     }
 
     private void addTailResultControl(final FlowPane pane) {
@@ -235,6 +238,8 @@ public class KafkaMessageTail extends Tab {
             partitionMetadataMap.put(metadata.partitionId(), metadata);
         }
         Collections.sort(partitionList);
+
+        int totalMessageCount = 0;
         while (true) {
             if (shouldRunFlag.get() == false)
                 break;
@@ -260,6 +265,9 @@ public class KafkaMessageTail extends Tab {
                             continue;
 
                         setSize++;
+                        totalMessageCount++;
+                        if (shouldStop(key, msg, totalMessageCount))
+                            continue;
                         if (messageAndOffset.message().hasKey()) {
                             keyList.add(key);
                             if (keyList.size() > tailCount)
@@ -289,6 +297,10 @@ public class KafkaMessageTail extends Tab {
     }
 
     protected boolean shouldSkip(String key, String msg) {
+        return false;
+    }
+
+    protected boolean shouldStop(String key, String msg, int totalMessageCount) {
         return false;
     }
 
