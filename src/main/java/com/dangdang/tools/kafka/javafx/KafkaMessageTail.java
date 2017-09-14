@@ -2,6 +2,7 @@ package com.dangdang.tools.kafka.javafx;
 
 import com.dangdang.tools.kafka.util.AlertUtil;
 import com.dangdang.tools.kafka.util.KafkaInfoUtil;
+import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.event.EventHandler;
@@ -19,6 +20,7 @@ import kafka.message.MessageAndOffset;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Created by wangshichun on 2015/12/25.
@@ -79,8 +81,8 @@ public class KafkaMessageTail extends Tab {
         tailResultText = new TextArea();
         tailResultText.setPrefWidth(JavaFxUtil.screenSize.getWidth() / 2);
         tailResultText.setPrefHeight(430);
-        tailResultText.setEditable(false);
-        tailResultText.setWrapText(true);
+        tailResultText.setEditable(true);
+        tailResultText.setWrapText(false);
 //        ScrollPane scrollPane = new ScrollPane(tailResultText);
 //        scrollPane.setPrefViewportHeight(500);
 //        scrollPane.setPrefViewportWidth(tailResultText.getPrefWidth() + 20);
@@ -179,6 +181,7 @@ public class KafkaMessageTail extends Tab {
 
         // 开始获取消息
         final Integer finalCount = count;
+        tailResultText.clear();
         tailThread = new Thread(new Runnable() {
             @Override
             public void run() {
@@ -189,7 +192,6 @@ public class KafkaMessageTail extends Tab {
     }
 
     private void tail(String topic, List<Integer> partitionList, Integer tailCount) {
-        tailResultText.clear();
         shouldRunFlag.set(true);
         TopicMetadata topicMeta = kafkaInfoUtil.getTopicMetadata(topic);
         if (null == topicMeta) {
@@ -231,7 +233,6 @@ public class KafkaMessageTail extends Tab {
             }
         }
 
-        List<String> keyList = new LinkedList<String>();
         List<String> messageList = new LinkedList<String>();
         Map<Integer, PartitionMetadata> partitionMetadataMap = new HashMap<Integer, PartitionMetadata>();
         for (PartitionMetadata metadata : topicMeta.partitionsMetadata()) {
@@ -239,10 +240,12 @@ public class KafkaMessageTail extends Tab {
         }
         Collections.sort(partitionList);
 
-        int totalMessageCount = 0;
+//        AlertUtil.alert("开始成功！");
         while (true) {
-            if (shouldRunFlag.get() == false)
+            if (!shouldRunFlag.get()) {
+                AlertUtil.alert("停止成功！");
                 break;
+            }
             cnt = 0;
             try {
                 for (Integer partitionId : partitionList) {
@@ -265,14 +268,6 @@ public class KafkaMessageTail extends Tab {
                             continue;
 
                         setSize++;
-                        totalMessageCount++;
-                        if (shouldStop(key, msg, totalMessageCount))
-                            continue;
-                        if (messageAndOffset.message().hasKey()) {
-                            keyList.add(key);
-                            if (keyList.size() > tailCount)
-                                keyList.remove(0);
-                        }
                         messageList.add(msg);
                         if (messageList.size() > tailCount)
                             messageList.remove(0);
@@ -283,7 +278,7 @@ public class KafkaMessageTail extends Tab {
                     }
                     cnt += setSize;
                     if (setSize > 0 && messageList.size() > 0) {
-                        receiveNewMessage(keyList, messageList, tailResultText);
+                        receiveNewMessage(messageList, tailResultText);
                     }
                 }
                 if (cnt < 1) {
@@ -291,6 +286,7 @@ public class KafkaMessageTail extends Tab {
                 }
             } catch (InterruptedException e) {
             } catch (Exception e) {
+                System.out.println("error:" + e.getMessage());
                 e.printStackTrace();
             }
         }
@@ -300,32 +296,37 @@ public class KafkaMessageTail extends Tab {
         return false;
     }
 
-    protected boolean shouldStop(String key, String msg, int totalMessageCount) {
-        return false;
-    }
-
-    private void receiveNewMessage(List<String> keyList, List<String> messageList, TextArea tailResultText) {
+    private StringBuilder tailMessage = new StringBuilder();
+    private AtomicReference<String> tailMessageAtomicReference = new AtomicReference<String>(null);
+    private void receiveNewMessage(List<String> messageList, TextArea tailResultText) {
         if (messageList.isEmpty())
             return;
 
-        StringBuilder sb = new StringBuilder();
-        if (keyList.size() == messageList.size()) {
-            for (int i = 0; i < messageList.size(); i++) {
-                if (sb.length() > 0)
-                    sb.append("\n");
-                sb.append("key: ").append(keyList.get(i)).append(", ");
-                sb.append("value: ").append(messageList.get(i));
-            }
-        } else {
-            for (int i = 0; i < messageList.size(); i++) {
-                if (sb.length() > 0)
-                    sb.append("\n");
-                sb.append(messageList.get(i));
-            }
+        tailMessage.delete(0, tailMessage.length());
+        int i = messageList.size() > 100 ? messageList.size() - 100 : 0; // 只输出最后100条
+        for (; i < messageList.size(); i++) {
+            if (tailMessage.length() > 0)
+                tailMessage.append("\n");
+            tailMessage.append(messageList.get(i));
         }
-
-        tailResultText.setText(sb.toString());
-        tailResultText.positionCaret(tailResultText.getLength());
+        tailMessage.append("\n\n");
+        tailMessageAtomicReference.set(tailMessage.toString());
+        try {
+            Thread.sleep(1000);
+            Platform.runLater(new Runnable() {
+                @Override
+                public void run() {
+                    if (tailMessageAtomicReference.get() == null)
+                        return;
+                    tailResultText.setText(tailMessageAtomicReference.get());
+//                    tailResultText.positionCaret(tailResultText.getText().length());
+                    tailResultText.setScrollTop(Double.MAX_VALUE);
+                    tailResultText.selectEnd();
+                    tailResultText.deselect();
+                }
+            });
+        } catch (InterruptedException e) {
+        }
     }
 
     private void stop() {

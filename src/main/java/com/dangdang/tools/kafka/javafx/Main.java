@@ -26,7 +26,7 @@ public class Main extends Application {
         // 窗口初始化
         stage.setTitle("kafka工具");
         final BorderPane borderPane = new BorderPane();
-        final Scene scene = new Scene(borderPane, JavaFxUtil.screenSize.getWidth() / 2 + 50, 700);
+        final Scene scene = new Scene(borderPane, JavaFxUtil.screenSize.getWidth() / 2 + 50, 720);
         borderPane.setPrefWidth(scene.getWidth());
         stage.setScene(scene);
         stage.show();

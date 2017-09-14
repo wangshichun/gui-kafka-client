@@ -342,37 +342,53 @@ public class KafkaInfoUtil {
         return zkClient.getChildren(ZkUtils.ConsumersPath());
     }
 
-    public Map<String, Map<Integer, Long>> getStormOffset(String topic) {
+    public Map<String, Map<Integer, Long>> getStormOffset(String topic, String zookeeper) {
         Map<String, Map<Integer, Long>> map = new HashMap<String, Map<Integer, Long>>();
-        if (zkClientStorm == null)
+        ZkClient zkClientCustom = null;
+        ZkClient zkClient = zkClientStorm;
+        if (zookeeper != null && zookeeper.length() > 0) {
+            try {
+                zkClient = new ZkClient(zookeeper);
+                zkClient.setZkSerializer(ZKStringSerializer$.MODULE$);
+                zkClientCustom = zkClient;
+            } catch (Exception e) {
+                AlertUtil.alert(String.format("连接storm的zookeeper %s 失败: %s", zookeeper, e.getMessage()));
+                return map;
+            }
+        }
+        if (zkClient == null) {
             return map;
-        List<String> consumerList = zkClientStorm.getChildren(STORM_TRASACTIONAL_PATH);
-        if (consumerList == null || consumerList.isEmpty())
-            return map;
+        }
+        List<String> consumerList = zkClient.getChildren(STORM_TRASACTIONAL_PATH);
 
         try {
+            if (consumerList == null || consumerList.isEmpty()) {
+                if (zkClientCustom != null)
+                    zkClientCustom.close();
+                return map;
+            }
             for (String consumer : consumerList) {
                 String userPath = STORM_TRASACTIONAL_PATH + "/" + consumer + "/user";
-                if (!zkClientStorm.exists(userPath))
+                if (!zkClient.exists(userPath))
                     continue;
-                List<String> partitionList = zkClientStorm.getChildren(userPath);
+                List<String> partitionList = zkClient.getChildren(userPath);
                 if (partitionList == null || partitionList.isEmpty())
                     continue;
 
                 Map<Integer, Long> offsetMap = new HashMap<Integer, Long>();
                 for (String partition : partitionList) {
                     String partitionPath = userPath + "/" + partition;
-                    if (!zkClientStorm.exists(partitionPath))
+                    if (!zkClient.exists(partitionPath))
                         break;
 
                     // 尝试3次
                     for (int i = 0; i < 3; i++) {
-                        List<String> attemptList = zkClientStorm.getChildren(partitionPath);
+                        List<String> attemptList = zkClient.getChildren(partitionPath);
                         if (attemptList == null || attemptList.isEmpty())
                             continue;
                         String attempt = attemptList.get(0);
                         String attemptPath = partitionPath + "/" + attempt;
-                        String json = zkClientStorm.readData(attemptPath, true);
+                        String json = zkClient.readData(attemptPath, true);
                         if (null == json || json.length() == 0)
                             continue;
 
@@ -389,6 +405,8 @@ public class KafkaInfoUtil {
             }
         } catch (Exception e) {
             e.printStackTrace();
+            if (zkClientCustom != null)
+                zkClientCustom.close();
         }
         return map;
     }

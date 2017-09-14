@@ -32,6 +32,7 @@ public class KafkaMessageSummary extends Tab {
     private KafkaInfoUtil kafkaInfoUtil;
     private ComboBox<String> topicComboBox;
     private CheckBox stormCheckBox = new CheckBox("显示storm消费者的offset");
+    private TextField stormZookeeperTextField = new TextField("10.255.209.46:2181,10.255.209.47:2181");
     private BarChart<String, Integer> partitionsChart;
     private TableView<Map> resultTable;
 //    private TextField stormZookeeper;
@@ -263,6 +264,7 @@ public class KafkaMessageSummary extends Tab {
 
     private void addTopicComboBox(FlowPane pane) {
         topicComboBox = new ComboBox<String>();
+        pane.getChildren().add(new Label("topic: "));
         pane.getChildren().add(topicComboBox);
         topicComboBox.getSelectionModel().selectedItemProperty().addListener(new ChangeListener<String>() {
             @Override
@@ -280,7 +282,12 @@ public class KafkaMessageSummary extends Tab {
     private void addGetSummaryButton(FlowPane pane) {
         Button button = new Button("刷新");
         pane.getChildren().add(stormCheckBox);
+        JavaFxUtil.addNewLine(pane);
+        pane.getChildren().add(new Label("storm的zookeeper："));
+        pane.getChildren().add(stormZookeeperTextField);
         pane.getChildren().add(button);
+
+        stormZookeeperTextField.setPrefColumnCount(30);
 
         button.setOnMouseClicked(new EventHandler<MouseEvent>() {
             @Override
@@ -411,7 +418,7 @@ public class KafkaMessageSummary extends Tab {
         dataList.add(row);
 
         if (stormCheckBox.isSelected()) {
-            Map<String, Map<Integer, Long>> stormOffsetMap = kafkaInfoUtil.getStormOffset(topicMeta.topic());
+            Map<String, Map<Integer, Long>> stormOffsetMap = kafkaInfoUtil.getStormOffset(topicMeta.topic(), stormZookeeperTextField.getText().trim());
             row = new HashMap<Object, String>();
             row.put(NAME_COLUMN, "storm消费者的offset:" + (stormOffsetMap.isEmpty() ? "无" : ""));
             dataList.add(row);
